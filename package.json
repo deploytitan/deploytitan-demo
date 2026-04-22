@@ -1,0 +1,15 @@
+{
+  "name": "deploytitan-demo",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "start": "turbo run start"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.3"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

@@ -1,0 +1,213 @@
+name: Deploy Demo Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/demo-service/**'
+
+env:
+  GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  SERVICE: demo-service
+  IMAGE: gcr.io/${{ secrets.GCP_PROJECT_ID }}/demo-service
+
+jobs:
+  deploy:
+    name: Build & Progressive Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker --quiet
+
+      # -----------------------------------------------------------------------
+      # Build & push image tagged with the short commit SHA (= the "version")
+      # -----------------------------------------------------------------------
+      - name: Build Docker image
+        working-directory: apps/demo-service
+        run: |
+          docker build \
+            --tag $IMAGE:${{ github.sha }} \
+            --tag $IMAGE:latest \
+            --build-arg VERSION=${{ github.sha }} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+
+      # -----------------------------------------------------------------------
+      # Notify DeployTitan: deployment started
+      # -----------------------------------------------------------------------
+      - name: Notify DeployTitan — deployment started
+        id: dt_started
+        run: |
+          RESPONSE=$(curl -sf -X POST "${{ secrets.DEPLOYTITAN_API_URL }}/deployments" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "serviceName": "'"$SERVICE"'",
+              "environment": "production",
+              "version": "${{ github.sha }}",
+              "commitSha": "${{ github.sha }}",
+              "triggeredBy": "github-actions"
+            }')
+          echo "deployment_id=$(echo $RESPONSE | jq -r '.id')" >> $GITHUB_OUTPUT
+
+      # -----------------------------------------------------------------------
+      # Deploy new revision to Cloud Run — receive NO traffic yet (tag=canary)
+      # -----------------------------------------------------------------------
+      - name: Deploy new revision (0% traffic)
+        run: |
+          gcloud run deploy $SERVICE \
+            --image $IMAGE:${{ github.sha }} \
+            --region $GCP_REGION \
+            --platform managed \
+            --no-traffic \
+            --tag canary \
+            --set-env-vars VERSION=${{ github.sha }},SERVICE_NAME=$SERVICE,OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTLP_ENDPOINT }} \
+            --min-instances 1 \
+            --quiet
+
+      # -----------------------------------------------------------------------
+      # Progressive rollout: 5% → 25% → 50% → 100%
+      # DeployTitan updates routing config; controller picks it up within 5s.
+      # -----------------------------------------------------------------------
+      - name: Rollout — 5%
+        run: |
+          NEW_REVISION=$(gcloud run revisions list \
+            --service $SERVICE --region $GCP_REGION \
+            --format 'value(metadata.name)' \
+            --filter 'metadata.annotations."serving.knative.dev/tags"=canary' \
+            --limit 1)
+
+          curl -sf -X POST "${{ secrets.DEPLOYTITAN_API_URL }}/traffic-split" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "serviceName": "'"$SERVICE"'",
+              "environment": "production",
+              "splits": [
+                { "deploymentId": "${{ steps.dt_started.outputs.deployment_id }}", "percentage": 5 }
+              ]
+            }' || true
+
+          gcloud run services update-traffic $SERVICE \
+            --region $GCP_REGION \
+            --to-revisions $NEW_REVISION=5 \
+            --quiet
+
+          echo "Waiting 30s at 5%..."
+          sleep 30
+
+      - name: Rollout — 25%
+        run: |
+          NEW_REVISION=$(gcloud run revisions list \
+            --service $SERVICE --region $GCP_REGION \
+            --format 'value(metadata.name)' \
+            --filter 'metadata.annotations."serving.knative.dev/tags"=canary' \
+            --limit 1)
+
+          curl -sf -X POST "${{ secrets.DEPLOYTITAN_API_URL }}/traffic-split" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "serviceName": "'"$SERVICE"'",
+              "environment": "production",
+              "splits": [
+                { "deploymentId": "${{ steps.dt_started.outputs.deployment_id }}", "percentage": 25 }
+              ]
+            }' || true
+
+          gcloud run services update-traffic $SERVICE \
+            --region $GCP_REGION \
+            --to-revisions $NEW_REVISION=25 \
+            --quiet
+
+          echo "Waiting 30s at 25%..."
+          sleep 30
+
+      - name: Rollout — 50%
+        run: |
+          NEW_REVISION=$(gcloud run revisions list \
+            --service $SERVICE --region $GCP_REGION \
+            --format 'value(metadata.name)' \
+            --filter 'metadata.annotations."serving.knative.dev/tags"=canary' \
+            --limit 1)
+
+          curl -sf -X POST "${{ secrets.DEPLOYTITAN_API_URL }}/traffic-split" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "serviceName": "'"$SERVICE"'",
+              "environment": "production",
+              "splits": [
+                { "deploymentId": "${{ steps.dt_started.outputs.deployment_id }}", "percentage": 50 }
+              ]
+            }' || true
+
+          gcloud run services update-traffic $SERVICE \
+            --region $GCP_REGION \
+            --to-revisions $NEW_REVISION=50 \
+            --quiet
+
+          echo "Waiting 30s at 50%..."
+          sleep 30
+
+      - name: Rollout — 100% (promote to stable)
+        run: |
+          NEW_REVISION=$(gcloud run revisions list \
+            --service $SERVICE --region $GCP_REGION \
+            --format 'value(metadata.name)' \
+            --filter 'metadata.annotations."serving.knative.dev/tags"=canary' \
+            --limit 1)
+
+          curl -sf -X POST "${{ secrets.DEPLOYTITAN_API_URL }}/traffic-split" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "serviceName": "'"$SERVICE"'",
+              "environment": "production",
+              "splits": [
+                { "deploymentId": "${{ steps.dt_started.outputs.deployment_id }}", "percentage": 100 }
+              ]
+            }' || true
+
+          gcloud run services update-traffic $SERVICE \
+            --region $GCP_REGION \
+            --to-revisions $NEW_REVISION=100 \
+            --quiet
+
+      # -----------------------------------------------------------------------
+      # Notify DeployTitan: deployment completed
+      # -----------------------------------------------------------------------
+      - name: Notify DeployTitan — deployment completed
+        if: success()
+        run: |
+          curl -sf -X PATCH "${{ secrets.DEPLOYTITAN_API_URL }}/deployments/${{ steps.dt_started.outputs.deployment_id }}" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{ "status": "completed" }' || true
+
+      - name: Notify DeployTitan — deployment failed
+        if: failure()
+        run: |
+          curl -sf -X PATCH "${{ secrets.DEPLOYTITAN_API_URL }}/deployments/${{ steps.dt_started.outputs.deployment_id }}" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYTITAN_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{ "status": "failed" }' || true
