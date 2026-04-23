@@ -4,6 +4,7 @@ import { ChangeGenerator } from './components/ChangeGenerator'
 import { DeploymentTimeline } from './components/DeploymentTimeline'
 import { TrafficControl } from './components/TrafficControl'
 import { CohortTester } from './components/CohortTester'
+import { VersionPanel } from './components/VersionPanel'
 import { GOLD } from './utils'
 
 export default function App() {
@@ -115,7 +116,7 @@ export default function App() {
         <div className="absolute inset-0 blueprint-grid opacity-20 pointer-events-none" />
         <div className="max-w-[1400px] mx-auto px-6 lg:px-12 relative">
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
             {/* Column 1 — Write a change */}
             <div className="flex flex-col gap-4">
@@ -143,6 +144,15 @@ export default function App() {
                 Step 3 — Test cohort routing
               </span>
               <CohortTester />
+            </div>
+
+            {/* Column 4 — Manage versions */}
+            <div className="flex flex-col gap-4">
+              <span className="inline-flex items-center gap-3 text-sm font-mono text-ink-secondary">
+                <span className="w-8 h-px bg-gold/40" />
+                Step 4 — Manage versions
+              </span>
+              <VersionPanel />
             </div>
 
           </div>

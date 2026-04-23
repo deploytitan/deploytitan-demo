@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMessage } from '../hooks/useApi'
+import { useMessage, useDeployments } from '../hooks/useApi'
 import { GOLD } from '../utils'
 
 const PRESET_COHORTS = [
@@ -12,8 +12,15 @@ export function CohortTester() {
   const [selected, setSelected] = useState<string | undefined>(undefined)
   const [custom, setCustom] = useState('')
   const { message, loading, error, fetch: fetchMsg } = useMessage()
+  const { deployments } = useDeployments()
 
   const activeCohort = custom.trim() || selected
+
+  // Build a map of cohortId -> short version SHA from deployments
+  const cohortVersionMap: Record<string, string> = {}
+  for (const v of deployments?.versions ?? []) {
+    if (v.cohortId) cohortVersionMap[v.cohortId] = v.version.slice(0, 8)
+  }
 
   function handleTest() {
     fetchMsg(activeCohort)
@@ -54,6 +61,9 @@ export function CohortTester() {
           >
             <span className="w-1.5 h-1.5" style={{ borderRadius: '0.5px', backgroundColor: c.color }} />
             {c.label}
+            {cohortVersionMap[c.id] && (
+              <span className="opacity-60">→ {cohortVersionMap[c.id]}</span>
+            )}
           </button>
         ))}
         <button

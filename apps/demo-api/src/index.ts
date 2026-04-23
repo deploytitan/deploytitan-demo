@@ -338,6 +338,125 @@ app.get('/api/message', (req: Request, res: Response) => {
 })
 
 /**
+ * GET /api/deployments
+ * Returns versions known to DeployTitan for this service, enriched with
+ * GitHub commit URLs and current cohort/traffic assignments.
+ */
+app.get('/api/deployments', (_req: Request, res: Response) => {
+  void (async () => {
+    if (!DEPLOYTITAN_API_URL || !DEPLOYTITAN_API_KEY) {
+      res.status(503).json({ error: 'DeployTitan not configured' })
+      return
+    }
+    try {
+      const routingRes = await fetch(
+        `${DEPLOYTITAN_API_URL}/routing-config/${encodeURIComponent(SERVICE_NAME)}/${encodeURIComponent(ENVIRONMENT)}`,
+        { headers: { Authorization: `Bearer ${DEPLOYTITAN_API_KEY}` }, signal: AbortSignal.timeout(5000) },
+      )
+      if (!routingRes.ok) { res.status(routingRes.status).json(await routingRes.json()); return }
+
+      const routing = await routingRes.json() as {
+        strategy: string
+        percentageRouting?: { versions: Array<{ deploymentId: string; version: string; targetIdentifier: string; percentage: number; healthy: boolean }> }
+        cohortRouting?: { cohorts: Array<{ cohortId: string; deploymentId: string; version: string; targetIdentifier: string; priority: number; healthy: boolean }>; defaultVersion: { deploymentId: string; version: string; targetIdentifier: string } }
+      }
+
+      // Merge all known versions from both routing modes into one deduplicated list
+      const versionMap = new Map<string, {
+        deploymentId: string; version: string; targetIdentifier: string
+        healthy: boolean; percentage?: number; cohortId?: string; isDefault?: boolean
+      }>()
+
+      for (const v of routing.percentageRouting?.versions ?? []) {
+        versionMap.set(v.deploymentId, { deploymentId: v.deploymentId, version: v.version, targetIdentifier: v.targetIdentifier, healthy: v.healthy, percentage: v.percentage })
+      }
+      for (const c of routing.cohortRouting?.cohorts ?? []) {
+        const existing = versionMap.get(c.deploymentId)
+        if (existing) { existing.cohortId = c.cohortId } else {
+          versionMap.set(c.deploymentId, { deploymentId: c.deploymentId, version: c.version, targetIdentifier: c.targetIdentifier, healthy: c.healthy, cohortId: c.cohortId })
+        }
+      }
+      if (routing.cohortRouting?.defaultVersion) {
+        const def = routing.cohortRouting.defaultVersion
+        const existing = versionMap.get(def.deploymentId)
+        if (existing) { existing.isDefault = true } else {
+          versionMap.set(def.deploymentId, { deploymentId: def.deploymentId, version: def.version, targetIdentifier: def.targetIdentifier, healthy: true, isDefault: true })
+        }
+      }
+
+      const versions = Array.from(versionMap.values()).map((v) => ({
+        ...v,
+        githubUrl: GITHUB_OWNER ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/commit/${v.version}` : null,
+      }))
+
+      res.json({ strategy: routing.strategy, versions })
+    } catch (err) {
+      console.error('[deployments] error:', (err as Error)?.message)
+      res.status(502).json({ error: 'Failed to fetch deployments' })
+    }
+  })()
+})
+
+/**
+ * POST /api/cohort
+ * Body: { cohorts: Array<{ cohortId: string; deploymentId: string; priority?: number }>, defaultDeploymentId: string }
+ * Switches routing to cohort strategy.
+ */
+app.post('/api/cohort', (req: Request, res: Response) => {
+  void (async () => {
+    if (!DEPLOYTITAN_API_URL || !DEPLOYTITAN_API_KEY) {
+      res.status(503).json({ error: 'DeployTitan not configured' }); return
+    }
+    const body = req.body as { cohorts?: Array<{ cohortId: string; deploymentId: string; priority?: number }>; defaultDeploymentId?: string }
+    if (!body.defaultDeploymentId) { res.status(400).json({ error: 'defaultDeploymentId is required' }); return }
+    if (!Array.isArray(body.cohorts)) { res.status(400).json({ error: 'cohorts must be an array' }); return }
+    try {
+      const upstream = await fetch(`${DEPLOYTITAN_API_URL}/cohort-routing`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${DEPLOYTITAN_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceName: SERVICE_NAME, environment: ENVIRONMENT, strategy: 'cohort',
+          cohorts: body.cohorts.map((c, i) => ({ cohortId: c.cohortId, deploymentId: c.deploymentId, priority: c.priority ?? (body.cohorts!.length - i) })),
+          defaultDeploymentId: body.defaultDeploymentId,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      res.status(upstream.status).json(await upstream.json())
+    } catch (err) {
+      console.error('[cohort] error:', (err as Error)?.message)
+      res.status(502).json({ error: 'Failed to update cohort routing' })
+    }
+  })()
+})
+
+/**
+ * POST /api/traffic
+ * Body: { splits: Array<{ deploymentId: string; percentage: number }> }
+ * Switches back to percentage routing.
+ */
+app.post('/api/traffic', (req: Request, res: Response) => {
+  void (async () => {
+    if (!DEPLOYTITAN_API_URL || !DEPLOYTITAN_API_KEY) {
+      res.status(503).json({ error: 'DeployTitan not configured' }); return
+    }
+    const body = req.body as { splits?: Array<{ deploymentId: string; percentage: number }> }
+    if (!Array.isArray(body.splits) || body.splits.length === 0) { res.status(400).json({ error: 'splits array is required' }); return }
+    try {
+      const upstream = await fetch(`${DEPLOYTITAN_API_URL}/traffic-split`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${DEPLOYTITAN_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceName: SERVICE_NAME, environment: ENVIRONMENT, strategy: 'percentage', splits: body.splits }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      res.status(upstream.status).json(await upstream.json())
+    } catch (err) {
+      console.error('[traffic] error:', (err as Error)?.message)
+      res.status(502).json({ error: 'Failed to update traffic split' })
+    }
+  })()
+})
+
+/**
  * GET /api/routing
  * Returns current routing config from DeployTitan.
  */

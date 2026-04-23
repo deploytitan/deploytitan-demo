@@ -140,6 +140,108 @@ export function useCommit() {
 }
 
 // ---------------------------------------------------------------------------
+// useDeployments — fetch /api/deployments, poll every 5s
+// ---------------------------------------------------------------------------
+
+export type DeploymentVersion = {
+  deploymentId: string
+  version: string
+  targetIdentifier: string
+  healthy: boolean
+  percentage?: number
+  cohortId?: string
+  isDefault?: boolean
+  githubUrl: string | null
+}
+
+export type DeploymentsResponse = {
+  strategy: string
+  versions: DeploymentVersion[]
+}
+
+export function useDeployments() {
+  const [deployments, setDeployments] = useState<DeploymentsResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/deployments`)
+      if (res.ok) setDeployments(await res.json())
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    refresh().finally(() => setLoading(false))
+    timerRef.current = setInterval(refresh, 5000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [refresh])
+
+  return { deployments, loading, refresh }
+}
+
+// ---------------------------------------------------------------------------
+// useCohortUpdate — POST /api/cohort or /api/traffic
+// ---------------------------------------------------------------------------
+
+export function useCohortUpdate() {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const assignCohort = useCallback(async (
+    cohortId: string,
+    deploymentId: string,
+    defaultDeploymentId: string,
+  ) => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/cohort`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cohorts: [{ cohortId, deploymentId, priority: 1 }],
+          defaultDeploymentId,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json() as { error?: string }
+        throw new Error(body.error ?? `${res.status}`)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed')
+      throw e
+    } finally {
+      setSaving(false)
+    }
+  }, [])
+
+  const resetToPercentage = useCallback(async (splits: Array<{ deploymentId: string; percentage: number }>) => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/traffic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ splits }),
+      })
+      if (!res.ok) {
+        const body = await res.json() as { error?: string }
+        throw new Error(body.error ?? `${res.status}`)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed')
+      throw e
+    } finally {
+      setSaving(false)
+    }
+  }, [])
+
+  return { assignCohort, resetToPercentage, saving, error }
+}
+
+// ---------------------------------------------------------------------------
 // useRouting — fetch /api/routing
 // ---------------------------------------------------------------------------
 
