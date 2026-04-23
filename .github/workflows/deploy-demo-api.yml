@@ -89,7 +89,7 @@ jobs:
             --cpu 1 \
             --memory 128Mi \
             --concurrency 80 \
-            --set-env-vars "SERVICE_NAME=demo-service,ENVIRONMENT=production,GITHUB_OWNER=${{ secrets.GITHUB_OWNER }},GITHUB_REPO=deploytitan-demo,GITHUB_BRANCH=main,DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},DEPLOYTITAN_API_KEY=${{ secrets.DEPLOYTITAN_API_KEY }},CONTROLLER_URL=${{ secrets.CONTROLLER_URL }},CORS_ORIGIN=${{ secrets.DEMO_UI_URL }}" \
+            --set-env-vars "SERVICE_NAME=demo-service,ENVIRONMENT=production,GITHUB_OWNER=deploytitan,GITHUB_REPO=deploytitan-demo,GITHUB_BRANCH=main,DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},DEPLOYTITAN_API_KEY=${{ secrets.DEPLOYTITAN_API_KEY }},CONTROLLER_URL=${{ secrets.CONTROLLER_URL }},CORS_ORIGIN=${{ secrets.DEMO_UI_URL }}" \
             --set-secrets "GITHUB_TOKEN=demo-github-token:latest" \
             --quiet
 
