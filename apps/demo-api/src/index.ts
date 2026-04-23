@@ -75,7 +75,7 @@ interface GitHubCommitResponse {
   commit: { sha: string }
 }
 
-async function commitMessage(text: string, author: string): Promise<string> {
+async function commitMessage(text: string, author: string, email?: string): Promise<string> {
   const path = 'apps/demo-service/message.json'
   const apiBase = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`
 
@@ -108,6 +108,13 @@ async function commitMessage(text: string, author: string): Promise<string> {
 
   const encoded = Buffer.from(newContent).toString('base64')
 
+  // Use visitor's name + email in git author metadata if provided
+  const authorObj = {
+    name: author,
+    email: email ?? `${author.toLowerCase().replace(/\s+/g, '.')}@demo.deploytitan.com`,
+    date: new Date().toISOString(),
+  }
+
   const putRes = await fetch(`${apiBase}/contents/${path}`, {
     method: 'PUT',
     headers: {
@@ -121,6 +128,8 @@ async function commitMessage(text: string, author: string): Promise<string> {
       content: encoded,
       sha: fileData.sha,
       branch: GITHUB_BRANCH,
+      author: authorObj,
+      committer: authorObj,
     }),
     signal: AbortSignal.timeout(15_000),
   })
@@ -199,7 +208,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 /**
  * POST /api/commit
- * Body: { text: string, author?: string }
+ * Body: { text: string, author?: string, email?: string }
  */
 app.post('/api/commit', (req: Request, res: Response) => {
   void (async () => {
@@ -213,9 +222,10 @@ app.post('/api/commit', (req: Request, res: Response) => {
       return
     }
 
-    const { text, author = 'anonymous' } = (req.body ?? {}) as {
+    const { text, author = 'anonymous', email } = (req.body ?? {}) as {
       text?: unknown
       author?: unknown
+      email?: unknown
     }
 
     if (typeof text !== 'string' || text.trim().length === 0) {
@@ -238,18 +248,26 @@ app.post('/api/commit', (req: Request, res: Response) => {
       return
     }
 
+    // Validate email if provided
+    const emailStr = typeof email === 'string' && email.trim().length > 0 ? email.trim() : undefined
+    if (emailStr && (emailStr.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr))) {
+      res.status(400).json({ error: 'invalid email address' })
+      return
+    }
+
     if (!GITHUB_TOKEN || !GITHUB_OWNER) {
       res.status(503).json({ error: 'GitHub integration not configured' })
       return
     }
 
     try {
-      const commitSha = await commitMessage(text.trim(), (author as string).trim())
+      const authorStr = (author as string).trim()
+      const commitSha = await commitMessage(text.trim(), authorStr, emailStr)
 
       broadcastSSE('commit', {
         sha: commitSha,
         message: text.trim(),
-        author: (author as string).trim(),
+        author: authorStr,
         timestamp: new Date().toISOString(),
       })
 
