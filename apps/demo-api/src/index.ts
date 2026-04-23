@@ -35,7 +35,7 @@ const CONTROLLER_URL = process.env['CONTROLLER_URL'] ?? ''
 
 // Simple in-process rate limiter: max 1 commit per IP per 60s
 const rateLimitMap = new Map<string, number>()
-const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_WINDOW_MS = 10_000
 
 function isRateLimited(ip: string): boolean {
   const last = rateLimitMap.get(ip) ?? 0
@@ -50,7 +50,7 @@ setInterval(() => {
   for (const [ip, ts] of rateLimitMap.entries()) {
     if (now - ts > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(ip)
   }
-}, 5 * 60_000)
+}, 60_000)
 
 // ---------------------------------------------------------------------------
 // Profanity filter (minimal word list — extend as needed)
@@ -217,7 +217,7 @@ app.post('/api/commit', (req: Request, res: Response) => {
 
     if (isRateLimited(ip)) {
       res.status(429).json({
-        error: 'Too many requests. Please wait 60 seconds before submitting again.',
+        error: 'Too many requests. Please wait a moment before submitting again.',
       })
       return
     }
