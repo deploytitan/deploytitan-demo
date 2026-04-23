@@ -34,7 +34,7 @@ export function DeploymentTimeline({ events, connected }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-0 overflow-y-auto" style={{ maxHeight: '280px' }}>
+      <div className="flex flex-col gap-0 overflow-y-auto" style={{ maxHeight: '140px' }}>
         {events.length === 0 && (
           <div className="py-6 text-center text-sm text-ink-quaternary font-mono">
             Waiting for events...
