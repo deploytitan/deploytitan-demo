@@ -1,0 +1,124 @@
+name: Deploy — demo-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/demo-service/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-demo-service.yml'
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev
+  GCP_PROJECT: deploy-titan-staging
+  GCP_REGION: us-central1
+  SERVICE: demo-service
+  IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/demo-service
+
+jobs:
+  deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read   # pull @deploytitan/cli from GitHub Packages
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: "@deploytitan"
+
+      - name: Install DeployTitan CLI
+        run: npm install -g @deploytitan/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -----------------------------------------------------------------------
+      # Build & push — SHA is used as VERSION inside the container
+      # -----------------------------------------------------------------------
+      - name: Build & push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/demo-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      # -----------------------------------------------------------------------
+      # Register deployment with DeployTitan — it takes over the rollout
+      # -----------------------------------------------------------------------
+      - name: Notify DeployTitan — started
+        id: dt
+        run: |
+          DEPLOY_ID=$(dt deployment:start \
+            --service ${{ env.SERVICE }} \
+            --version ${{ github.sha }} \
+            --triggered-by github-actions | jq -r '.id')
+          echo "deployment_id=${DEPLOY_ID}" >> $GITHUB_OUTPUT
+        env:
+          DEPLOYTITAN_API_URL: ${{ secrets.DEPLOYTITAN_API_URL }}
+          DEPLOYTITAN_API_KEY: ${{ secrets.DEPLOYTITAN_API_KEY }}
+
+      # -----------------------------------------------------------------------
+      # Deploy new revision to Cloud Run at 0% traffic.
+      # DeployTitan controls the rollout from here — the controller polls the
+      # routing config and shifts traffic automatically.
+      # -----------------------------------------------------------------------
+      - name: Deploy new revision (0% traffic)
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --platform managed \
+            --no-traffic \
+            --tag canary \
+            --min-instances 0 \
+            --max-instances 2 \
+            --cpu 1 \
+            --memory 128Mi \
+            --concurrency 80 \
+            --set-env-vars "VERSION=${{ github.sha }},SERVICE_NAME=${{ env.SERVICE }},OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTLP_ENDPOINT }}" \
+            --quiet
+
+      # -----------------------------------------------------------------------
+      # Notify DeployTitan — outcome (DeployTitan marks rollout complete itself,
+      # but we still report the CI step result for the dashboard)
+      # -----------------------------------------------------------------------
+      - name: Notify DeployTitan — completed
+        if: success() && steps.dt.outputs.deployment_id != ''
+        run: dt deployment:finish --id ${{ steps.dt.outputs.deployment_id }} --status completed || true
+        env:
+          DEPLOYTITAN_API_URL: ${{ secrets.DEPLOYTITAN_API_URL }}
+          DEPLOYTITAN_API_KEY: ${{ secrets.DEPLOYTITAN_API_KEY }}
+
+      - name: Notify DeployTitan — failed
+        if: failure() && steps.dt.outputs.deployment_id != ''
+        run: dt deployment:finish --id ${{ steps.dt.outputs.deployment_id }} --status failed || true
+        env:
+          DEPLOYTITAN_API_URL: ${{ secrets.DEPLOYTITAN_API_URL }}
+          DEPLOYTITAN_API_KEY: ${{ secrets.DEPLOYTITAN_API_KEY }}

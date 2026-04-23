@@ -13,10 +13,7 @@
 import express, { Request, Response } from 'express'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { join } from 'node:path'
 
 // ---------------------------------------------------------------------------
 // Config
