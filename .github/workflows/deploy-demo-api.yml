@@ -34,7 +34,7 @@ jobs:
           scope: "@deploytitan"
 
       - name: Install DeployTitan CLI
-        run: npm install -g @deploytitan/cli
+        run: npm install -g @deploytitan/cli@canary
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
