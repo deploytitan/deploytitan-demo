@@ -11,11 +11,11 @@ on:
 
 env:
   REGISTRY: us-central1-docker.pkg.dev
-  GCP_PROJECT: deploy-titan-staging
+  GCP_PROJECT: deploytitan-demo
   GCP_REGION: us-central1
   # Cloud Run runtime app behind the controller reverse proxy.
   APP_SERVICE: core-service-app
-  APP_IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/core-service
+  APP_IMAGE: us-central1-docker.pkg.dev/deploytitan-demo/deploytitan-demo/core-service
   # Cloud Run URL base for core-service-app (no trailing slash)
   APP_URL_BASE: https://core-service-app-lbd4nqzujq-uc.a.run.app
   # DeployTitan logical service name that the controller polls for.

@@ -25,7 +25,7 @@ env:
   SOURCE_PROJECT: deploy-titan
   SOURCE_REPOSITORY: deploytitan
   SOURCE_IMAGE: controller
-  TARGET_PROJECT: deploy-titan-staging
+  TARGET_PROJECT: deploytitan-demo
   GCP_REGION: us-central1
 
 jobs:

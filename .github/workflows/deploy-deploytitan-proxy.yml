@@ -11,10 +11,10 @@ on:
 
 env:
   REGISTRY: us-central1-docker.pkg.dev
-  GCP_PROJECT: deploy-titan-staging
+  GCP_PROJECT: deploytitan-demo
   GCP_REGION: us-central1
   SERVICE: deploytitan-proxy
-  IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/deploytitan-proxy
+  IMAGE: us-central1-docker.pkg.dev/deploytitan-demo/deploytitan-demo/deploytitan-proxy
 
 jobs:
   deploy:
