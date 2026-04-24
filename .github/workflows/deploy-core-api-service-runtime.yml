@@ -1,4 +1,4 @@
-name: Deploy — demo-service
+name: Deploy — core-api-service runtime
 
 on:
   push:
@@ -7,19 +7,19 @@ on:
       - 'apps/demo-service/**'
       - 'packages/**'
       - 'pnpm-lock.yaml'
-      - '.github/workflows/deploy-demo-service.yml'
+      - '.github/workflows/deploy-core-api-service-runtime.yml'
 
 env:
   REGISTRY: us-central1-docker.pkg.dev
   GCP_PROJECT: deploy-titan-staging
   GCP_REGION: us-central1
-  # demo-service-app is the versioned Express app behind the controller
+  # Cloud Run runtime app behind the traffic controller
   APP_SERVICE: demo-service-app
   APP_IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/demo-service
   # Cloud Run URL base for demo-service-app (no trailing slash)
   APP_URL_BASE: https://demo-service-app-lbd4nqzujq-uc.a.run.app
   # DeployTitan logical service name (what the controller polls for)
-  DT_SERVICE: demo-service
+  DT_SERVICE: core-api-service
 
 jobs:
   deploy:
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read   # pull @deploytitan/cli from GitHub Packages
+      packages: read # pull @deploytitan/cli from GitHub Packages
 
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com
-          scope: "@deploytitan"
+          scope: '@deploytitan'
 
       - name: Install DeployTitan CLI
         run: npm install -g @deploytitan/cli@latest

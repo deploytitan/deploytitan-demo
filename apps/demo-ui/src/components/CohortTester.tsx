@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMessage, useDeployments } from '../hooks/useApi'
+import { useMessage, type DeploymentsResponse } from '../hooks/useApi'
 import { GOLD } from '../utils'
 
 const PRESET_COHORTS = [
@@ -8,11 +8,10 @@ const PRESET_COHORTS = [
   { id: 'canary',       label: 'Canary',       color: GOLD },
 ]
 
-export function CohortTester() {
+export function CohortTester({ deployments }: { deployments: DeploymentsResponse | null }) {
   const [selected, setSelected] = useState<string | undefined>(undefined)
   const [custom, setCustom] = useState('')
   const { message, loading, error, fetch: fetchMsg } = useMessage()
-  const { deployments } = useDeployments()
 
   const activeCohort = custom.trim() || selected
 

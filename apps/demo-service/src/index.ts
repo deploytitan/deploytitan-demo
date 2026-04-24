@@ -14,16 +14,11 @@ import express, { Request, Response } from 'express'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
+import { VERSION, OTLP_ENDPOINT, OTLP_FLUSH_MS, PORT } from './env.js'
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-
-const PORT = parseInt(process.env['PORT'] ?? '8080', 10)
-const VERSION = process.env['VERSION'] ?? 'unknown'
-const SERVICE_NAME = process.env['SERVICE_NAME'] ?? 'demo-service'
-const OTLP_ENDPOINT = process.env['OTEL_EXPORTER_OTLP_ENDPOINT'] ?? 'http://localhost:4318'
-const OTLP_FLUSH_MS = parseInt(process.env['OTEL_FLUSH_INTERVAL_MS'] ?? '5000', 10)
 
 // ---------------------------------------------------------------------------
 // OTLP telemetry (batched, fire-and-forget)
@@ -204,11 +199,11 @@ app.get('/', (_req: Request, res: Response) => {
 const server = createServer(app)
 
 server.listen(PORT, () => {
-  console.log(`[demo-service] v${VERSION} listening on port ${PORT}`)
+  console.log(`[visitor-message-runtime] v${VERSION} listening on port ${PORT}`)
 })
 
 process.on('SIGTERM', () => {
-  console.log('[demo-service] SIGTERM received, shutting down...')
+  console.log('[visitor-message-runtime] SIGTERM received, shutting down...')
   flushSpans().finally(() => {
     server.close(() => process.exit(0))
   })

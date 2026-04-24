@@ -10,7 +10,7 @@ import { GOLD } from './utils'
 export default function App() {
   const sectionRef = useScrollReveal()
   const spotlightRef = useSpotlight()
-  const { events, routing, connected } = useEventStream()
+  const { events, routing, deployments, connected } = useEventStream()
 
   return (
     <div className="min-h-screen bg-surface">
@@ -143,7 +143,7 @@ export default function App() {
                 <span className="w-8 h-px bg-gold/40" />
                 Step 3 — Test cohort routing
               </span>
-              <CohortTester />
+              <CohortTester deployments={deployments} />
             </div>
 
             {/* Column 4 — Manage versions */}
@@ -152,7 +152,7 @@ export default function App() {
                 <span className="w-8 h-px bg-gold/40" />
                 Step 4 — Manage versions
               </span>
-              <VersionPanel />
+              <VersionPanel deployments={deployments} />
             </div>
 
           </div>

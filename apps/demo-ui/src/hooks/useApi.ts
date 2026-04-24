@@ -36,6 +36,22 @@ export type MessageResponse = {
   }
 }
 
+export type DeploymentVersion = {
+  deploymentId: string
+  version: string
+  targetIdentifier: string
+  healthy: boolean
+  percentage?: number
+  cohortId?: string
+  isDefault?: boolean
+  githubUrl: string | null
+}
+
+export type DeploymentsResponse = {
+  strategy: string
+  versions: DeploymentVersion[]
+}
+
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 // ---------------------------------------------------------------------------
@@ -45,6 +61,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 export function useEventStream() {
   const [events, setEvents] = useState<DeployEvent[]>([])
   const [routing, setRouting] = useState<RoutingConfig | null>(null)
+  const [deployments, setDeployments] = useState<DeploymentsResponse | null>(null)
   const [connected, setConnected] = useState(false)
 
   useEffect(() => {
@@ -60,6 +77,11 @@ export function useEventStream() {
       )
     })
 
+    es.addEventListener('deployments', (e) => {
+      const data = JSON.parse(e.data) as DeploymentsResponse
+      setDeployments(data)
+    })
+
     es.addEventListener('commit', (e) => {
       const data = JSON.parse(e.data) as Record<string, unknown>
       setEvents((prev) =>
@@ -72,7 +94,7 @@ export function useEventStream() {
     return () => es.close()
   }, [])
 
-  return { events, routing, connected }
+  return { events, routing, deployments, connected }
 }
 
 // ---------------------------------------------------------------------------
@@ -140,45 +162,30 @@ export function useCommit() {
 }
 
 // ---------------------------------------------------------------------------
-// useDeployments — fetch /api/deployments, poll every 5s
+// useDeployments — manual refresh only (data is pushed via SSE deployments event)
+// Call refresh() after a mutation to immediately re-sync without waiting for
+// the next SSE poll cycle.
 // ---------------------------------------------------------------------------
 
-export type DeploymentVersion = {
-  deploymentId: string
-  version: string
-  targetIdentifier: string
-  healthy: boolean
-  percentage?: number
-  cohortId?: string
-  isDefault?: boolean
-  githubUrl: string | null
-}
-
-export type DeploymentsResponse = {
-  strategy: string
-  versions: DeploymentVersion[]
-}
-
 export function useDeployments() {
-  const [deployments, setDeployments] = useState<DeploymentsResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (
+    onData?: (data: DeploymentsResponse) => void,
+  ) => {
+    setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/api/deployments`)
-      if (res.ok) setDeployments(await res.json())
-    } catch { /* ignore */ }
+      if (res.ok) {
+        const data = (await res.json()) as DeploymentsResponse
+        onData?.(data)
+      }
+    } catch { /* ignore */ } finally {
+      setLoading(false)
+    }
   }, [])
 
-  useEffect(() => {
-    setLoading(true)
-    refresh().finally(() => setLoading(false))
-    timerRef.current = setInterval(refresh, 5000)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [refresh])
-
-  return { deployments, loading, refresh }
+  return { loading, refresh }
 }
 
 // ---------------------------------------------------------------------------

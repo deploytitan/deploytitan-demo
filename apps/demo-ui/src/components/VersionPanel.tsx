@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useDeployments, useCohortUpdate, type DeploymentVersion } from '../hooks/useApi'
+import { useDeployments, useCohortUpdate, type DeploymentVersion, type DeploymentsResponse } from '../hooks/useApi'
 import { GOLD } from '../utils'
 
 const PRESET_COHORTS = [
@@ -8,9 +8,17 @@ const PRESET_COHORTS = [
   { id: 'canary',       label: 'Canary', color: GOLD },
 ]
 
-export function VersionPanel() {
-  const { deployments, loading, refresh } = useDeployments()
+export function VersionPanel({ deployments: sseDeployments }: { deployments: DeploymentsResponse | null }) {
+  // SSE-pushed data is the source of truth; after mutations we trigger a
+  // one-shot refresh so the UI reflects the change without waiting for the
+  // next SSE poll cycle.
+  const [localDeployments, setLocalDeployments] = useState<DeploymentsResponse | null>(null)
+  const { loading, refresh } = useDeployments()
   const { assignCohort, resetToPercentage, saving, error } = useCohortUpdate()
+
+  // Prefer locally-refreshed data (post-mutation) over SSE data so the update
+  // is visible immediately; fall back to SSE data otherwise.
+  const deployments = localDeployments ?? sseDeployments
 
   // Per-version cohort assignment UI state: deploymentId -> selected cohortId
   const [pendingCohort, setPendingCohort] = useState<Record<string, string>>({})
@@ -23,18 +31,17 @@ export function VersionPanel() {
     await assignCohort(cohortId, version.deploymentId, defaultId)
     setSuccessMsg(`Cohort "${cohortId}" → ${version.version.slice(0, 8)}`)
     setTimeout(() => setSuccessMsg(null), 3000)
-    await refresh()
+    await refresh((data) => setLocalDeployments(data))
   }
 
   async function handleReset() {
     if (!deployments) return
-    // Send 100% to the most stable/default version
     const stable = deployments.versions.find((v) => v.isDefault) ?? deployments.versions[0]
     if (!stable) return
     await resetToPercentage([{ deploymentId: stable.deploymentId, percentage: 100 }])
     setSuccessMsg('Reset to 100% percentage routing')
     setTimeout(() => setSuccessMsg(null), 3000)
-    await refresh()
+    await refresh((data) => setLocalDeployments(data))
   }
 
   return (

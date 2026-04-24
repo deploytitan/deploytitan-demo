@@ -1,4 +1,4 @@
-name: Deploy — demo-api
+name: Deploy — api-traffic-controller
 
 on:
   push:
@@ -7,14 +7,14 @@ on:
       - 'apps/demo-api/**'
       - 'packages/**'
       - 'pnpm-lock.yaml'
-      - '.github/workflows/deploy-demo-api.yml'
+      - '.github/workflows/deploy-api-traffic-controller.yml'
 
 env:
   REGISTRY: us-central1-docker.pkg.dev
   GCP_PROJECT: deploy-titan-staging
   GCP_REGION: us-central1
-  SERVICE: demo-api
-  IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/demo-api
+  SERVICE: api-traffic-controller
+  IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/api-traffic-controller
 
 jobs:
   deploy:
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com
-          scope: "@deploytitan"
+          scope: '@deploytitan'
 
       - name: Install DeployTitan CLI
         run: npm install -g @deploytitan/cli@latest
@@ -89,7 +89,7 @@ jobs:
             --cpu 1 \
             --memory 128Mi \
             --concurrency 80 \
-            --set-env-vars "SERVICE_NAME=demo-service,ENVIRONMENT=production,GITHUB_OWNER=deploytitan,GITHUB_REPO=deploytitan-demo,GITHUB_BRANCH=main,DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},DEPLOYTITAN_API_KEY=${{ secrets.DEPLOYTITAN_API_KEY }},CONTROLLER_URL=${{ secrets.CONTROLLER_URL }},CORS_ORIGIN=${{ secrets.DEMO_UI_URL }}" \
+            --set-env-vars "SERVICE_NAME=core-api-service,ENVIRONMENT=production,GITHUB_OWNER=deploytitan,GITHUB_REPO=deploytitan-demo,GITHUB_BRANCH=main,DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},DEPLOYTITAN_API_KEY=${{ secrets.DEPLOYTITAN_API_KEY }},CONTROLLER_URL=${{ secrets.CONTROLLER_URL }},CORS_ORIGIN=${{ secrets.DEMO_UI_URL }}" \
             --set-secrets "GITHUB_TOKEN=demo-github-token:latest" \
             --quiet
 
