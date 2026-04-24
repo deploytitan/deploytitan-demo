@@ -56,7 +56,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: apps/demo-api/Dockerfile
+          file: apps/deploytitan-proxy/Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}

@@ -7,12 +7,12 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/ ./packages/
 COPY apps/demo-api/package.json ./apps/demo-api/
 
-RUN pnpm install --frozen-lockfile --filter @deploytitan-demo/demo-api...
+RUN pnpm install --frozen-lockfile --filter @deploytitan-demo/deploytitan-proxy...
 
 COPY apps/demo-api/src/ ./apps/demo-api/src/
 
 # Bundle to a single CJS file — no node_modules at runtime
-RUN pnpm --filter @deploytitan-demo/demo-api exec \
+RUN pnpm --filter @deploytitan-demo/deploytitan-proxy exec \
   esbuild src/index.ts \
   --bundle \
   --platform=node \
