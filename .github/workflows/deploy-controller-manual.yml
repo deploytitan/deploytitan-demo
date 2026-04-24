@@ -43,7 +43,7 @@ jobs:
             --cpu 1 \
             --memory 128Mi \
             --concurrency 80 \
-            --set-env-vars "DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},SERVICE_NAME=core-service,ENVIRONMENT=production" \
+            --set-env-vars "DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},DEPLOYTITAN_API_KEY=${{ secrets.DEPLOYTITAN_API_KEY }},SERVICE_NAME=core-service,ENVIRONMENT=production" \
             --quiet
 
       - name: Verify controller health
