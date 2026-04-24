@@ -17,8 +17,7 @@ export const GITHUB_BRANCH = process.env['GITHUB_BRANCH'] ?? 'main';
 
 export const DEPLOYTITAN_API_URL = process.env['DEPLOYTITAN_API_URL'] ?? '';
 export const DEPLOYTITAN_API_KEY = process.env['DEPLOYTITAN_API_KEY'] ?? '';
-export const CORE_SERVICE_NAME =
-  process.env['SERVICE_NAME'] ?? 'core-api-service';
+export const CORE_SERVICE_NAME = process.env['SERVICE_NAME'] ?? 'core-service';
 export const ENVIRONMENT = process.env['ENVIRONMENT'] ?? 'production';
 
 export const CONTROLLER_URL = process.env['CONTROLLER_URL'] ?? '';

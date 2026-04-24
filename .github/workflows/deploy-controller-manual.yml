@@ -1,0 +1,74 @@
+name: Deploy — controller (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Controller image tag to deploy from DeployTitan Artifact Registry
+        required: false
+        default: latest
+      cloud_run_service:
+        description: Cloud Run service name for the controller reverse proxy
+        required: false
+        default: controller
+      deploytitan_service:
+        description: DeployTitan service name the controller should poll for
+        required: false
+        default: core-service
+      environment:
+        description: DeployTitan environment name
+        required: false
+        default: production
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev
+  SOURCE_PROJECT: deploy-titan
+  SOURCE_REPOSITORY: deploytitan
+  SOURCE_IMAGE: controller
+  TARGET_PROJECT: deploy-titan-staging
+  GCP_REGION: us-central1
+
+jobs:
+  deploy:
+    name: Deploy Published Controller
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Deploy controller to Cloud Run
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.SOURCE_PROJECT }}/${{ env.SOURCE_REPOSITORY }}/${{ env.SOURCE_IMAGE }}:${{ github.event.inputs.image_tag || 'latest' }}"
+          gcloud run deploy "${{ github.event.inputs.cloud_run_service || 'controller' }}" \
+            --image "$IMAGE" \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.TARGET_PROJECT }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --min-instances 1 \
+            --max-instances 2 \
+            --cpu 1 \
+            --memory 128Mi \
+            --concurrency 80 \
+            --set-env-vars "DEPLOYTITAN_API_URL=${{ secrets.DEPLOYTITAN_API_URL }},DEPLOYTITAN_API_KEY=${{ secrets.DEPLOYTITAN_API_KEY }},SERVICE_NAME=${{ github.event.inputs.deploytitan_service || 'core-service' }},ENVIRONMENT=${{ github.event.inputs.environment || 'production' }}" \
+            --quiet
+
+      - name: Verify controller health
+        run: |
+          URL=$(gcloud run services describe "${{ github.event.inputs.cloud_run_service || 'controller' }}" \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.TARGET_PROJECT }} \
+            --format='value(status.url)')
+          echo "Controller URL: $URL"
+          curl -sf "$URL/health"

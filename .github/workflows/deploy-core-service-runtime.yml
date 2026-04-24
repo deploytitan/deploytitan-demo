@@ -1,0 +1,168 @@
+name: Deploy — core-service runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/core-service/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-core-service-runtime.yml'
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev
+  GCP_PROJECT: deploy-titan-staging
+  GCP_REGION: us-central1
+  # Cloud Run runtime app behind the controller reverse proxy.
+  APP_SERVICE: core-service-app
+  APP_IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/core-service
+  # Cloud Run URL base for core-service-app (no trailing slash)
+  APP_URL_BASE: https://core-service-app-lbd4nqzujq-uc.a.run.app
+  # DeployTitan logical service name that the controller polls for.
+  DT_SERVICE: core-service
+
+jobs:
+  deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read # pull @deploytitan/cli from GitHub Packages
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@deploytitan'
+
+      - name: Install DeployTitan CLI
+        run: npm install -g @deploytitan/cli@latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -----------------------------------------------------------------------
+      # Derive a short tag safe for Cloud Run (lowercase alphanumeric + hyphens,
+      # max 63 chars). Cloud Run tag format: v-<short-sha>
+      # Tagged URL: https://v-<short-sha>---core-service-app-lbd4nqzujq-uc.a.run.app
+      # -----------------------------------------------------------------------
+      - name: Compute version tag
+        id: tag
+        run: |
+          SHORT="${GITHUB_SHA:0:8}"
+          echo "short=${SHORT}" >> $GITHUB_OUTPUT
+          echo "cr_tag=v-${SHORT}" >> $GITHUB_OUTPUT
+          echo "target_url=https://v-${SHORT}---core-service-app-lbd4nqzujq-uc.a.run.app" >> $GITHUB_OUTPUT
+
+      # -----------------------------------------------------------------------
+      # Build & push — SHA is used as VERSION inside the container
+      # -----------------------------------------------------------------------
+      - name: Build & push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/core-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.APP_IMAGE }}:${{ github.sha }}
+            ${{ env.APP_IMAGE }}:latest
+          build-args: |
+            VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      # -----------------------------------------------------------------------
+      # Register deployment with DeployTitan BEFORE deploying so the ID exists
+      # -----------------------------------------------------------------------
+      - name: Notify DeployTitan — started
+        id: dt
+        run: |
+          DEPLOY_ID=$(dt deployment:start \
+            --service ${{ env.DT_SERVICE }} \
+            --version ${{ github.sha }} \
+            --triggered-by github-actions \
+            --target-url ${{ steps.tag.outputs.target_url }} | jq -r '.id')
+          echo "deployment_id=${DEPLOY_ID}" >> $GITHUB_OUTPUT
+        env:
+          DEPLOYTITAN_API_URL: ${{ secrets.DEPLOYTITAN_API_URL }}
+          DEPLOYTITAN_API_KEY: ${{ secrets.DEPLOYTITAN_API_KEY }}
+
+      # -----------------------------------------------------------------------
+      # Deploy new revision to Cloud Run at 0% traffic with a unique tag.
+      # The controller shifts traffic after it observes the updated routing config.
+      # -----------------------------------------------------------------------
+      - name: Deploy new revision (0% traffic)
+        run: |
+          gcloud run deploy ${{ env.APP_SERVICE }} \
+            --image ${{ env.APP_IMAGE }}:${{ github.sha }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --platform managed \
+            --no-traffic \
+            --tag ${{ steps.tag.outputs.cr_tag }} \
+            --min-instances 0 \
+            --max-instances 2 \
+            --cpu 1 \
+            --memory 128Mi \
+            --concurrency 80 \
+            --set-env-vars "VERSION=${{ github.sha }},SERVICE_NAME=${{ env.DT_SERVICE }}" \
+            --quiet
+
+      # -----------------------------------------------------------------------
+      # Notify DeployTitan — completed
+      # -----------------------------------------------------------------------
+      - name: Notify DeployTitan — completed
+        if: success() && steps.dt.outputs.deployment_id != ''
+        run: dt deployment:finish --id ${{ steps.dt.outputs.deployment_id }} --status completed || true
+        env:
+          DEPLOYTITAN_API_URL: ${{ secrets.DEPLOYTITAN_API_URL }}
+          DEPLOYTITAN_API_KEY: ${{ secrets.DEPLOYTITAN_API_KEY }}
+
+      - name: Notify DeployTitan — failed
+        if: failure() && steps.dt.outputs.deployment_id != ''
+        run: dt deployment:finish --id ${{ steps.dt.outputs.deployment_id }} --status failed || true
+        env:
+          DEPLOYTITAN_API_URL: ${{ secrets.DEPLOYTITAN_API_URL }}
+          DEPLOYTITAN_API_KEY: ${{ secrets.DEPLOYTITAN_API_KEY }}
+
+      # -----------------------------------------------------------------------
+      # Cleanup: keep only the 5 most recent Cloud Run revisions (delete older)
+      # -----------------------------------------------------------------------
+      - name: Cleanup old Cloud Run revisions
+        if: always()
+        run: |
+          REVISIONS=$(gcloud run revisions list \
+            --service ${{ env.APP_SERVICE }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --format="value(metadata.name)" \
+            --sort-by="~metadata.creationTimestamp" \
+            --quiet)
+          COUNT=0
+          for REV in $REVISIONS; do
+            COUNT=$((COUNT+1))
+            if [ $COUNT -gt 5 ]; then
+              echo "Deleting old revision: $REV"
+              gcloud run revisions delete "$REV" \
+                --region ${{ env.GCP_REGION }} \
+                --project ${{ env.GCP_PROJECT }} \
+                --quiet || true
+            fi
+          done
