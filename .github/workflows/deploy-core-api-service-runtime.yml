@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/demo-service/**'
+      - 'apps/core-service/**'
       - 'packages/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/deploy-core-api-service-runtime.yml'
@@ -17,7 +17,7 @@ env:
   APP_SERVICE: core-service-app
   APP_IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/core-service
   # Cloud Run URL base for core-service-app (no trailing slash)
-  APP_URL_BASE: https://demo-service-app-lbd4nqzujq-uc.a.run.app
+  APP_URL_BASE: https://core-service-app-lbd4nqzujq-uc.a.run.app
   # DeployTitan logical service name (what the controller polls for)
   DT_SERVICE: core-api-service
 
@@ -68,7 +68,7 @@ jobs:
           SHORT="${GITHUB_SHA:0:8}"
           echo "short=${SHORT}" >> $GITHUB_OUTPUT
           echo "cr_tag=v-${SHORT}" >> $GITHUB_OUTPUT
-          echo "target_url=https://v-${SHORT}---demo-service-app-lbd4nqzujq-uc.a.run.app" >> $GITHUB_OUTPUT
+          echo "target_url=https://v-${SHORT}---core-service-app-lbd4nqzujq-uc.a.run.app" >> $GITHUB_OUTPUT
 
       # -----------------------------------------------------------------------
       # Build & push — SHA is used as VERSION inside the container

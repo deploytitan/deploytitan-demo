@@ -1,5 +1,5 @@
 {
-  "name": "@deploytitan-demo/demo-api",
+  "name": "@deploytitan-demo/deploytitan-proxy",
   "version": "1.0.0",
   "private": true,
   "type": "module",
