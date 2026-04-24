@@ -81,7 +81,7 @@ interface GitHubCommitResponse {
 }
 
 async function commitMessage(text: string, author: string, email?: string): Promise<string> {
-  const path = 'apps/demo-service/message.json'
+  const path = 'apps/core-service/message.json'
   const apiBase = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`
 
   // Get current file SHA (required for update)

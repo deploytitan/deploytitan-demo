@@ -14,7 +14,7 @@ import express, { Request, Response } from 'express'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
-import { VERSION, OTLP_ENDPOINT, OTLP_FLUSH_MS, PORT } from './env.js'
+import {VERSION, OTLP_ENDPOINT, OTLP_FLUSH_MS, PORT, CORE_SERVICE_NAME} from './env.js'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -69,13 +69,13 @@ async function flushSpans(): Promise<void> {
       {
         resource: {
           attributes: [
-            { key: 'service.name', value: { stringValue: SERVICE_NAME } },
+            { key: 'service.name', value: { stringValue: CORE_SERVICE_NAME } },
             { key: 'service.version', value: { stringValue: VERSION } },
           ],
         },
         scopeSpans: [
           {
-            scope: { name: SERVICE_NAME, version: VERSION },
+            scope: { name: CORE_SERVICE_NAME, version: VERSION },
             spans: toSend.map((s) => ({
               traceId: s.traceId,
               spanId: s.spanId,
@@ -151,7 +151,7 @@ app.use((req, res, next) => {
  * Used by Cloud Run readiness + liveness probes.
  */
 app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', version: VERSION, service: SERVICE_NAME })
+  res.json({ status: 'ok', version: VERSION, service: CORE_SERVICE_NAME })
 })
 
 /**
@@ -170,7 +170,7 @@ app.get('/message', (req: Request, res: Response) => {
     // Always echo the version + cohort so the UI can show "you're on v2, cohort=beta"
     _meta: {
       version: VERSION,
-      service: SERVICE_NAME,
+      service: CORE_SERVICE_NAME,
       cohortId: cohortId ?? null,
       routedBy: req.headers['x-routed-by'] ?? null,
       routingStrategy: req.headers['x-routing-strategy'] ?? null,
@@ -189,7 +189,7 @@ app.get('/message', (req: Request, res: Response) => {
  * Simple root check.
  */
 app.get('/', (_req: Request, res: Response) => {
-  res.json({ service: SERVICE_NAME, version: VERSION, status: 'ok' })
+  res.json({ service: CORE_SERVICE_NAME, version: VERSION, status: 'ok' })
 })
 
 // ---------------------------------------------------------------------------

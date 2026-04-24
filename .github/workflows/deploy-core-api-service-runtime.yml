@@ -14,9 +14,9 @@ env:
   GCP_PROJECT: deploy-titan-staging
   GCP_REGION: us-central1
   # Cloud Run runtime app behind the traffic controller
-  APP_SERVICE: demo-service-app
-  APP_IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/demo-service
-  # Cloud Run URL base for demo-service-app (no trailing slash)
+  APP_SERVICE: core-service-app
+  APP_IMAGE: us-central1-docker.pkg.dev/deploy-titan-staging/deploytitan-staging/core-service
+  # Cloud Run URL base for core-service-app (no trailing slash)
   APP_URL_BASE: https://demo-service-app-lbd4nqzujq-uc.a.run.app
   # DeployTitan logical service name (what the controller polls for)
   DT_SERVICE: core-api-service
@@ -60,7 +60,7 @@ jobs:
       # -----------------------------------------------------------------------
       # Derive a short tag safe for Cloud Run (lowercase alphanumeric + hyphens,
       # max 63 chars). Cloud Run tag format: v-<short-sha>
-      # Tagged URL: https://v-<short-sha>---demo-service-app-lbd4nqzujq-uc.a.run.app
+      # Tagged URL: https://v-<short-sha>---core-service-app-lbd4nqzujq-uc.a.run.app
       # -----------------------------------------------------------------------
       - name: Compute version tag
         id: tag
@@ -77,7 +77,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: apps/demo-service/Dockerfile
+          file: apps/core-service/Dockerfile
           push: true
           tags: |
             ${{ env.APP_IMAGE }}:${{ github.sha }}
