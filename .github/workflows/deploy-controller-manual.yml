@@ -10,7 +10,7 @@ on:
       cloud_run_service:
         description: Cloud Run service name for the controller reverse proxy
         required: false
-        default: controller
+        default: traffic-controller
       deploytitan_service:
         description: DeployTitan service name the controller should poll for
         required: false
