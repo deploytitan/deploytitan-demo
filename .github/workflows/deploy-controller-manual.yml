@@ -9,7 +9,7 @@ on:
         default: latest
 
 env:
-  CONTROLLER_IMAGE: us-central1-docker.pkg.dev/deploy-titan/deploytitan/controller
+  CONTROLLER_IMAGE: us-central1-docker.pkg.dev/deploy-titan/public/controller
   TARGET_PROJECT: deploytitan-demo
   GCP_REGION: us-central1
 
