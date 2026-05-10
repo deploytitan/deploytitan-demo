@@ -22,7 +22,7 @@ export function ChangeGenerator() {
 
   return (
     <div
-      className="border border-line bg-white p-6 spotlight-card group transition-all duration-300 hover:border-gold/30 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04),0_0_0_1px_rgba(201,168,76,0.08)]"
+      className="border border-line bg-surface p-6 spotlight-card group transition-all duration-300 hover:border-primary/30 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04),0_0_0_1px_rgba(201,168,76,0.08)]"
       style={{ borderRadius: '2px' }}
     >
       {/* Corner accents */}

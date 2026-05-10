@@ -26,7 +26,7 @@ export function CohortTester({ deployments }: { deployments: DeploymentsResponse
   }
 
   return (
-    <div className="border border-line bg-white p-5" style={{ borderRadius: '2px' }}>
+    <div className="border border-line bg-surface p-5" style={{ borderRadius: '2px' }}>
       <div className="flex items-center gap-3 mb-4">
         <div className="w-6 h-6 bg-ink flex items-center justify-center" style={{ borderRadius: '1px' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

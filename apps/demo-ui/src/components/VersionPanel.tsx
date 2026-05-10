@@ -45,7 +45,7 @@ export function VersionPanel({ deployments: sseDeployments }: { deployments: Dep
   }
 
   return (
-    <div className="border border-line bg-white p-5 flex flex-col gap-4" style={{ borderRadius: '2px' }}>
+    <div className="border border-line bg-surface p-5 flex flex-col gap-4" style={{ borderRadius: '2px' }}>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-6 h-6 bg-ink flex items-center justify-center" style={{ borderRadius: '1px' }}>
@@ -110,7 +110,7 @@ export function VersionPanel({ deployments: sseDeployments }: { deployments: Dep
                   href={v.githubUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[10px] font-mono text-ink-tertiary hover:text-gold transition-colors"
+                  className="text-[10px] font-mono text-ink-tertiary hover:text-primary transition-colors"
                 >
                   ↗ commit
                 </a>

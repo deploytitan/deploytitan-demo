@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 
 export type RoutingConfig = {
   serviceName: string
@@ -98,7 +98,7 @@ export function useEventStream() {
 }
 
 // ---------------------------------------------------------------------------
-// useMessage — fetch /api/message with a given cohort
+// useMessage — fetch /api-reference/message with a given cohort
 // ---------------------------------------------------------------------------
 
 export function useMessage() {
@@ -127,7 +127,7 @@ export function useMessage() {
 }
 
 // ---------------------------------------------------------------------------
-// useCommit — POST /api/commit
+// useCommit — POST /api-reference/commit
 // ---------------------------------------------------------------------------
 
 export function useCommit() {
@@ -189,7 +189,7 @@ export function useDeployments() {
 }
 
 // ---------------------------------------------------------------------------
-// useCohortUpdate — POST /api/cohort or /api/traffic
+// useCohortUpdate — POST /api-reference/cohort or /api-reference/traffic
 // ---------------------------------------------------------------------------
 
 export function useCohortUpdate() {
@@ -249,7 +249,7 @@ export function useCohortUpdate() {
 }
 
 // ---------------------------------------------------------------------------
-// useRouting — fetch /api/routing
+// useRouting — fetch /api-reference/routing
 // ---------------------------------------------------------------------------
 
 export function useRouting() {

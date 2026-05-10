@@ -10,7 +10,7 @@ export function TrafficControl({ routing }: Props) {
   if (!routing) {
     return (
       <div
-        className="border border-line bg-white p-6 flex items-center justify-center"
+        className="border border-line bg-surface p-6 flex items-center justify-center"
         style={{ borderRadius: '2px', minHeight: '160px' }}
       >
         <span className="text-sm font-mono text-ink-quaternary">Loading routing config...</span>
@@ -21,7 +21,7 @@ export function TrafficControl({ routing }: Props) {
   const { strategy, percentageRouting, cohortRouting, rollbackActive, lastUpdated } = routing
 
   return (
-    <div className="border border-line bg-white" style={{ borderRadius: '2px' }}>
+    <div className="border border-line bg-surface" style={{ borderRadius: '2px' }}>
       <div className="flex items-center gap-3 px-5 py-3 border-b border-line">
         <span className="font-display font-medium text-sm tracking-[-0.01em]">Traffic Split</span>
 

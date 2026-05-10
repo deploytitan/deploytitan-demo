@@ -14,7 +14,7 @@ interface Props {
 export function DeploymentTimeline({ events, connected }: Props) {
   return (
     <div
-      className="border border-line bg-white p-4 flex flex-col gap-0"
+      className="border border-line bg-surface p-4 flex flex-col gap-0"
       style={{ borderRadius: '2px' }}
     >
       <div className="flex items-center gap-3 mb-3 pb-3 border-b border-line">
