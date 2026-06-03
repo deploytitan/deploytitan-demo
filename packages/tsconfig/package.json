@@ -1,6 +1,0 @@
-{
-  "name": "@deploytitan-demo/tsconfig",
-  "version": "0.0.0",
-  "private": true,
-  "files": ["*.json"]
-}
